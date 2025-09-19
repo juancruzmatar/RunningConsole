@@ -1,0 +1,68 @@
+(async () => {
+  // ---------- helpers ----------
+  const assert = (c,m)=>{ if(!c) throw new Error(m); };
+  const q = (sel,root=document)=> {
+    const el = root.querySelector(sel);
+    assert(el, `Missing ${sel}`);
+    return el;
+  };
+  const set = (sel, val) => {
+    const el = q(sel);
+    el.scrollIntoView({block:'center'});
+    el.focus();
+    el.value = '';
+    el.value = val;
+    el.dispatchEvent(new Event('input',  { bubbles:true }));
+    el.dispatchEvent(new Event('change', { bubbles:true }));
+    el.blur();
+  };
+  const norm = s => String(s ?? '').split(':').slice(1).join(':').trim();
+  const sleep = ms => new Promise(r=>setTimeout(r,ms));
+
+  // ---------- fill ----------
+  const data = {
+    fullName: 'John Doe',
+    email: 'john.doe@example.com',
+    currentAddress: '123 Main St',
+    permanentAddress: '456 Secondary St',
+  };
+  set('#userName', data.fullName);
+  set('#userEmail', data.email);
+  set('#currentAddress', data.currentAddress);
+  set('#permanentAddress', data.permanentAddress);
+
+  // ---------- submit via button (más fiable aquí) ----------
+  q('#submit').scrollIntoView({block:'center'});
+  q('#submit').click();
+
+  // ---------- wait output (poll hasta que aparezca #name con "Name:") ----------
+  let tries = 0;
+  while (tries++ < 80) { // ~8s
+    const nameLine = document.querySelector('#output #name')?.textContent || '';
+    if (nameLine.includes('Name')) break;
+    await sleep(100);
+  }
+
+  // ---------- UI assertions ----------
+  const out = q('#output');
+  const nameR = norm(q('#name', out).textContent);
+  const emailR = norm(q('#email', out).textContent);
+  const currR  = norm(q('#currentAddress', out).textContent);
+  const permR  = norm(q('#permanentAddress', out).textContent);
+
+  assert(nameR  === data.fullName,        `Name mismatch. Expected "${data.fullName}", got "${nameR}"`);
+  assert(emailR === data.email,           `Email mismatch. Expected "${data.email}", got "${emailR}"`);
+  assert(currR  === data.currentAddress,  `Current Address mismatch. Expected "${data.currentAddress}", got "${currR}"`);
+  assert(permR  === data.permanentAddress,`Permanent Address mismatch. Expected "${data.permanentAddress}", got "${permR}"`);
+
+  // ---------- API assertions ----------
+  const res = await fetch('https://jsonplaceholder.typicode.com/posts/1');
+  assert(res.status === 200, `API status mismatch. Expected 200, got ${res.status}`);
+  const j = await res.json();
+  for (const k of ['userId','id','title','body']) {
+    assert(Object.prototype.hasOwnProperty.call(j, k), `API JSON missing key "${k}"`);
+  }
+  assert(j.id === 1, `API JSON "id" mismatch. Expected 1, got ${j.id}`);
+
+  console.log('✅ All tests passed');
+})();
